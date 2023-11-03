@@ -50,7 +50,7 @@ def setup_temp(path: str) -> None:
         ("in/*", "out", True, [
             os.path.join("out", "a.txt"),
             os.path.join("out", "b.txt"),
-            os.path.join("out/nested")
+            os.path.join("out", "nested")
         ]),  # copy multiple files
         ("in/**/*.txt", "out", True, [
             os.path.join("out", "a.txt"),
