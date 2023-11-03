@@ -1,0 +1,30 @@
+id: "prepare-copy"
+name: "Copy"
+description: "Copy files/directories"
+inputs:
+  source:
+    description: "File/directory to prepare_copy (glob)"
+    required: true
+  destination:
+    description: "Destination to prepare_copy to"
+    required: true
+  force:
+    description: "Force the prepare_copy (overwrite)"
+    type: boolean
+    default: true
+  recursive:
+    description: "Allow copy of directories"
+    type: boolean
+    default: true
+  allow-outside-working-directory:
+    description: "Destination/matched files can be outside the working directory"
+    type: boolean
+    default: false
+outputs:
+  copied:
+    description: The new path(s)
+    type: array
+    items: string
+runs:
+  using: "python"
+  main: "prepare_copy/main.py"
