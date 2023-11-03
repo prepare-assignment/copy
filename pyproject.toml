@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "copy"
+version = "0.1.0"
+description = "Copy files/directories"
+authors = ["Martijn Bonajo <m.bonajo@fontys.nl>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+prepare-toolbox = "^0.4.0"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+mypy = "^1.6.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
