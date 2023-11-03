@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "copy"
+name = "prepare_copy"
 version = "0.1.0"
 description = "Copy files/directories"
 authors = ["Martijn Bonajo <m.bonajo@fontys.nl>"]
