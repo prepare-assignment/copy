@@ -1,0 +1,21 @@
+name: Test
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    uses: prepare-assignment/actions-ci/.github/workflows/test.yml@main
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    with:
+      mypy-argument: "prepare_copy"
