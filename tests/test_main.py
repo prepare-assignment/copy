@@ -40,30 +40,32 @@ def setup_temp(path: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "source, destination, force, expected",
+    "source, destination, force, expected, fail_no_match",
     [
-        ("test.txt", "new.txt", False, ["new.txt"]),  # make single copy
-        ("test.txt", "out", True, [os.path.join("out", "test.txt")]),  # copy to new directory
-        ("test.txt", "in/a.txt", True, [os.path.join("in", "a.txt")]),  # overwrite
-        ("test.txt", "out/a.txt", True, [os.path.join("out", "a.txt")]),  # copy to new directory and rename
-        ("in/nested/c.txt", "out", True, [os.path.join("out", "c.txt")]),  # copy deeper nested file
+        ("test.txt", "new.txt", False, ["new.txt"], True),  # make single copy
+        ("test.txt", "out", True, [os.path.join("out", "test.txt")], True),  # copy to new directory
+        ("test.txt", "in/a.txt", True, [os.path.join("in", "a.txt")], True),  # overwrite
+        ("test.txt", "out/a.txt", True, [os.path.join("out", "a.txt")], True),  # copy to new directory and rename
+        ("in/nested/c.txt", "out", True, [os.path.join("out", "c.txt")], True),  # copy deeper nested file
         ("in/*", "out", True, [
             os.path.join("out", "a.txt"),
             os.path.join("out", "b.txt"),
             os.path.join("out", "nested")
-        ]),  # copy multiple files
+        ], True),  # copy multiple files
         ("in/**/*.txt", "out", True, [
             os.path.join("out", "a.txt"),
             os.path.join("out", "b.txt"),
             os.path.join("out", "c.txt")
-        ]),  # copy multiple files
-        ("in", "out", True, [os.path.join("out", "in")]),  # copy directory
+        ], True),  # copy multiple files
+        ("in", "out", True, [os.path.join("out", "in")], True),  # copy directory
+        ("asdasdasd", "out", True, [], False),  # copy non-existing
     ]
 )
 def test_copy_success(source: str,
                       destination: str,
                       force: bool,
                       expected: List[str],
+                      fail_no_match: bool,
                       monkeypatch: MonkeyPatch,
                       mocker: MockerFixture) -> None:
     def __get_input(key: str, required: bool = False):
@@ -71,6 +73,8 @@ def test_copy_success(source: str,
             return source
         elif key == "destination":
             return destination
+        elif key == "fail-no-match":
+            return fail_no_match
         else:
             return force
 
@@ -87,14 +91,14 @@ def test_copy_success(source: str,
 
 
 @pytest.mark.parametrize(
-    "source, destination, force, recursive, allow_outside",
+    "source, destination, force, recursive, allow_outside, fail_no_match",
     [
-        ("test.txt", "a.txt", False, False, False),
-        ("test.txt", "..", True, True, False),
-        ("z.txt", "out", True, True, False),
-        ("a.txt", "in/a.txt", False, False, False),
-        ("in", "out", True, False, False),
-        ("in", "a.txt", True, True, False)
+        ("test.txt", "a.txt", False, False, False, True),
+        ("test.txt", "..", True, True, False, True),
+        ("z.txt", "out", True, True, False, True),
+        ("a.txt", "in/a.txt", False, False, False, True),
+        ("in", "out", True, False, False, True),
+        ("in", "a.txt", True, True, False, True)
     ]
 )
 def test_copy_failure(source: str,
@@ -102,6 +106,7 @@ def test_copy_failure(source: str,
                       force: bool,
                       recursive: bool,
                       allow_outside: bool,
+                      fail_no_match: bool,
                       monkeypatch: MonkeyPatch,
                       mocker: MockerFixture) -> None:
 
@@ -116,6 +121,8 @@ def test_copy_failure(source: str,
             return recursive
         elif key == "allow-outside-working-directory":
             return allow_outside
+        elif key == "fail-no-match":
+            return fail_no_match
 
     mocker.patch('prepare_copy.main.get_input', side_effect=__get_input)
     old_cwd = os.getcwd()

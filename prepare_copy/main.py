@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from prepare_toolbox.core import set_failed, get_input, debug, set_output
+from prepare_toolbox.core import set_failed, get_input, debug, set_output, warning
 from prepare_toolbox.file import get_matching_files
 
 
@@ -14,6 +14,7 @@ def main() -> None:
         recursive: bool = get_input("recursive")
         force: bool = get_input("force")
         allow_outside: bool = get_input("allow-outside-working-directory")
+        fail_no_match: bool = get_input("fail-no-match")
 
         copied: List[str] = []
         if not allow_outside:
@@ -21,7 +22,12 @@ def main() -> None:
             Path(os.path.abspath(destination)).relative_to(os.getcwd())
         files = get_matching_files(source, allow_outside_working_dir=allow_outside)
         if len(files) == 0:
-            set_failed(f"Glob '{source}' doesn't match any files")
+            if fail_no_match:
+                set_failed(f"Glob '{source}' doesn't match any files")
+            else:
+                warning(f"Glob '{source}' doesn't match any files")
+                set_output("copied", copied)
+                return
         debug(f"Glob '{source}', matched {files}")
         for path in files:
             if os.path.isfile(path):
