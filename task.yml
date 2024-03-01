@@ -20,6 +20,10 @@ inputs:
     description: "Destination/matched files can be outside the working directory"
     type: boolean
     default: false
+  fail-no-match:
+    description: "If true the action fails if non of the globs match"
+    type: boolean
+    default: true
 outputs:
   copied:
     description: The new path(s)
