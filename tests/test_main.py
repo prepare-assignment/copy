@@ -160,8 +160,8 @@ def test_preserve_path(monkeypatch: MonkeyPatch, mocker: MockerFixture):
     with tempfile.TemporaryDirectory() as tempdir:
         monkeypatch.chdir(tempdir)
         setup_temp(tempdir)
-        os.mkdir("out/nested")
         os.mkdir("in/nested/deeper")
+        os.mkdir("out/nested")
         Path(os.path.join("in/nested/deeper", "d.txt")).touch()
         main()
         monkeypatch.chdir(old_cwd)

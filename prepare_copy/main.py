@@ -36,8 +36,11 @@ def main() -> None:
                 if os.path.isdir(destination):
                     if preserve_path:
                         common_part = __preserve_path(path, destination)
-                        new_path = os.path.join(destination, common_part)
-                        os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                        if common_part:
+                            new_path = os.path.join(destination, common_part)
+                            os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                        else:
+                            new_path = os.path.join(destination, os.path.basename(path))
                     else:
                         new_path = os.path.join(destination, os.path.basename(path))
                 else:
@@ -69,10 +72,8 @@ def __preserve_path(source: str, destination: str):
     source = os.path.abspath(source)
     destination = os.path.abspath(destination)
 
-    source_parts = source.split(os.sep)
-    source_parts.remove('')
-    dest_parts = destination.split(os.sep)
-    dest_parts.remove('')
+    source_parts = [x for x in source.split(os.sep) if x != '']
+    dest_parts = [x for x in destination.split(os.sep) if x != '']
 
     dictionary = {}
 
