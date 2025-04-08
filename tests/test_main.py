@@ -165,4 +165,4 @@ def test_preserve_path(monkeypatch: MonkeyPatch, mocker: MockerFixture):
         Path(os.path.join("in/nested/deeper", "d.txt")).touch()
         main()
         monkeypatch.chdir(old_cwd)
-    spy.assert_called_once_with("copied", ["out/nested/deeper/d.txt"])
+    spy.assert_called_once_with("copied", [os.path.join("out", "nested", "deeper", "d.txt")])
