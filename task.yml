@@ -24,6 +24,10 @@ inputs:
     description: "If true the action fails if non of the globs match"
     type: boolean
     default: true
+  preserve-path:
+    description: "Preserve directory structure after common path"
+    type: boolean
+    default: false
 outputs:
   copied:
     description: The new path(s)

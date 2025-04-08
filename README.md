@@ -37,6 +37,10 @@ allow-outside-working-directory:
   description: "Destination/matched files can be outside the working directory"
   type: boolean
   default: false
+preserve-path:
+  description: "Preserve directory structure after common path"
+  type: boolean
+  default: false
 ```
 
 ## Outputs

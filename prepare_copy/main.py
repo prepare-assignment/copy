@@ -15,6 +15,7 @@ def main() -> None:
         force: bool = get_input("force")
         allow_outside: bool = get_input("allow-outside-working-directory")
         fail_no_match: bool = get_input("fail-no-match")
+        preserve_path: bool = get_input("preserve-path")
 
         copied: List[str] = []
         if not allow_outside:
@@ -31,13 +32,20 @@ def main() -> None:
         debug(f"Glob '{source}', matched {files}")
         for path in files:
             if os.path.isfile(path):
+
                 if os.path.isdir(destination):
-                    new_path = os.path.join(destination, os.path.basename(path))
+                    if preserve_path:
+                        common_part = __preserve_path(path, destination)
+                        new_path = os.path.join(destination, common_part)
+                        os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                    else:
+                        new_path = os.path.join(destination, os.path.basename(path))
                 else:
                     new_path = destination
+
                 if os.path.exists(new_path) and not force:
                     set_failed(f"'{new_path}' already exists, use 'force' to overwrite")
-                actual_path = shutil.copy(path, destination)
+                actual_path = shutil.copy(path, new_path)
                 copied.append(actual_path)
             else:
                 if not recursive:
@@ -54,6 +62,34 @@ def main() -> None:
         set_output("copied", copied)
     except Exception as e:
         set_failed(e)
+
+
+def __preserve_path(source: str, destination: str):
+
+    source = os.path.abspath(source)
+    destination = os.path.abspath(destination)
+
+    source_parts = source.split(os.sep)
+    source_parts.remove('')
+    dest_parts = destination.split(os.sep)
+    dest_parts.remove('')
+
+    dictionary = {}
+
+    for idx, part in enumerate(source_parts):
+        dictionary[part] = idx
+
+    length = len(dest_parts)
+    end = None
+    for idx in reversed(range(length)):
+        part = dest_parts[idx]
+        if part in dictionary:
+            end = idx+1
+            break
+    if not end:
+        return None
+    else:
+        return os.sep.join(source_parts[end:])
 
 
 if __name__ == "__main__":

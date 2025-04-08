@@ -75,6 +75,8 @@ def test_copy_success(source: str,
             return destination
         elif key == "fail-no-match":
             return fail_no_match
+        elif key == "preserve-path":
+            return False
         else:
             return force
 
@@ -133,3 +135,34 @@ def test_copy_failure(source: str,
             main()
         # We need to do this otherwise it won't work on Windows......
         monkeypatch.chdir(old_cwd)
+
+
+def test_preserve_path(monkeypatch: MonkeyPatch, mocker: MockerFixture):
+    def __get_input(key: str, required: bool = False):
+        if key == "source":
+            return "in/nested/deeper/d.txt"
+        elif key == "destination":
+            return "out/nested"
+        elif key == "force":
+            return False
+        elif key == "recursive":
+            return False
+        elif key == "allow-outside-working-directory":
+            return False
+        elif key == "fail-no-match":
+            return False
+        elif key == "preserve-path":
+            return True
+
+    mocker.patch('prepare_copy.main.get_input', side_effect=__get_input)
+    spy = mocker.patch("prepare_copy.main.set_output")
+    old_cwd = os.getcwd()
+    with tempfile.TemporaryDirectory() as tempdir:
+        monkeypatch.chdir(tempdir)
+        setup_temp(tempdir)
+        os.mkdir("out/nested")
+        os.mkdir("in/nested/deeper")
+        Path(os.path.join("in/nested/deeper", "d.txt")).touch()
+        main()
+        monkeypatch.chdir(old_cwd)
+    spy.assert_called_once_with("copied", ["out/nested/deeper/d.txt"])
