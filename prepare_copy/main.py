@@ -85,7 +85,7 @@ def __preserve_path(source: str, destination: str):
     for idx in reversed(range(length)):
         part = dest_parts[idx]
         if part in dictionary:
-            end = idx+1
+            end = dictionary[part] + 1
             break
     if not end:
         return None
