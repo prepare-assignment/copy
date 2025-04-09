@@ -174,4 +174,4 @@ def test_common_path() -> None:
 
     common = __preserve_path(source, destination)
 
-    assert common == "io/github/fontysvenlo/classloader/SecretClass.class.enc"
+    assert common == str(Path("io/github/fontysvenlo/classloader/SecretClass.class.enc"))
