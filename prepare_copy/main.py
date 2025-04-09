@@ -90,6 +90,7 @@ def __preserve_path(source: str, destination: str):
     if not end:
         return None
     else:
+        debug(f"Preserving path, common: {source_parts[:end]}, preserving: {source_parts[end:]}")
         return os.sep.join(source_parts[end:])
 
 
