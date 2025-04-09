@@ -7,7 +7,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
-from prepare_copy.main import main
+from prepare_copy.main import main, __preserve_path
 
 
 def setup_temp(path: str) -> None:
@@ -166,3 +166,12 @@ def test_preserve_path(monkeypatch: MonkeyPatch, mocker: MockerFixture):
         main()
         monkeypatch.chdir(old_cwd)
     spy.assert_called_once_with("copied", [os.path.join("out", "nested", "deeper", "d.txt")])
+
+
+def test_common_path() -> None:
+    source = "/home/solution/src/main/resources/io/github/fontysvenlo/classloader/SecretClass.class.enc"
+    destination = "/home/out/assignment/src/main/resources"
+
+    common = __preserve_path(source, destination)
+
+    assert common == str(Path("io/github/fontysvenlo/classloader/SecretClass.class.enc"))
