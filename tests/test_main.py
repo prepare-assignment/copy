@@ -7,7 +7,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from pytest_mock import MockerFixture
 
-from prepare_copy.main import main
+from prepare_copy.main import main, __preserve_path
 
 
 def setup_temp(path: str) -> None:
