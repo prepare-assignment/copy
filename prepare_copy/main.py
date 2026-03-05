@@ -57,8 +57,10 @@ def main() -> None:
                     set_failed(f"Cannot copy a directory ('{path}') to '{destination}' as it is not a directory")
                 parts = os.path.normpath(path).split(os.path.sep)
                 if len(parts) > 1:
+                    debug(f"Copying directory (parts > 1)'{path}' to '{os.path.join(destination, parts[-1])}', preserve_path: {preserve_path}")
                     actual_path = shutil.copytree(path, os.path.join(destination, parts[-1]), dirs_exist_ok=True)
                 else:
+                    debug(f"Copying directory (parts == 1)'{path}' to '{os.path.join(destination, path)}', preserve_path: {preserve_path}")
                     actual_path = shutil.copytree(path, os.path.join(destination, path), dirs_exist_ok=True)
                 copied.append(actual_path)
         debug(f"copied paths are: {copied}")
