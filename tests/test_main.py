@@ -168,6 +168,37 @@ def test_preserve_path(monkeypatch: MonkeyPatch, mocker: MockerFixture):
     spy.assert_called_once_with("copied", [os.path.join("out", "nested", "deeper", "d.txt")])
 
 
+def test_preserve_path_creates_destination(monkeypatch: MonkeyPatch, mocker: MockerFixture):
+    """preserve-path should create the destination directory when it doesn't exist yet."""
+    def __get_input(key: str, required: bool = False):
+        if key == "source":
+            return "in/nested/c.txt"
+        elif key == "destination":
+            return "out/nested"
+        elif key == "force":
+            return False
+        elif key == "recursive":
+            return False
+        elif key == "allow-outside-working-directory":
+            return False
+        elif key == "fail-no-match":
+            return True
+        elif key == "preserve-path":
+            return True
+
+    mocker.patch('prepare_copy.main.get_input', side_effect=__get_input)
+    spy = mocker.patch("prepare_copy.main.set_output")
+    old_cwd = os.getcwd()
+    with tempfile.TemporaryDirectory() as tempdir:
+        monkeypatch.chdir(tempdir)
+        setup_temp(tempdir)
+        # out/nested does NOT exist — this was the bug trigger
+        main()
+        assert os.path.isdir("out/nested"), "destination should have been created as a directory"
+        monkeypatch.chdir(old_cwd)
+    spy.assert_called_once_with("copied", [os.path.join("out", "nested", "c.txt")])
+
+
 def test_common_path() -> None:
     source = "/home/solution/src/main/resources/io/github/fontysvenlo/classloader/SecretClass.class.enc"
     destination = "/home/out/assignment/src/main/resources"

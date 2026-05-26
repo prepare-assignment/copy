@@ -32,6 +32,8 @@ def main() -> None:
         debug(f"Glob '{source}', matched {files}")
         for path in files:
             if os.path.isfile(path):
+                if preserve_path and not os.path.isdir(destination):
+                    os.makedirs(destination, exist_ok=True)
 
                 if os.path.isdir(destination):
                     if preserve_path:
