@@ -5,17 +5,18 @@ description = "Copy files/directories"
 authors = [{ name = "Martijn Bonajo", email = "m.bonajo@fontys.nl" }]
 license = { text = "MIT" }
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
-    "prepare-toolbox>=0.4.0",
+    "prepare-toolbox>=1.0.1",
 ]
 
 [dependency-groups]
 test = [
-    "pytest>=7.4.3",
+    "pytest>=9.0.3",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.12.0",
     "mypy>=1.6.1",
+    "packaging>=24.0",
 ]
 
 [build-system]
