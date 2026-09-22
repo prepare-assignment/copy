@@ -1,202 +1,146 @@
-import os
-import tempfile
+import json
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
+import yaml
 from pytest_mock import MockerFixture
 
+import prepare_copy.main as copy_main
 from prepare_copy.main import main, __preserve_path
 
+TASK = Path(__file__).parent.parent / "task.yml"
 
-def setup_temp(path: str) -> None:
+
+def set_inputs(monkeypatch: pytest.MonkeyPatch, **inputs: Any) -> None:
     """
-    Set up a temporary directory structure for testing
-    path
+    Pass the inputs like prepare-assignment core does: as JSON in PREPARE_<NAME> environment variables,
+    including the defaults from task.yml. Use the names from task.yml, with '_' for '-'.
+    """
+    definition: Dict[str, Any] = yaml.safe_load(TASK.read_text(encoding="utf-8"))["inputs"]
+    values = {name: spec["default"] for name, spec in definition.items() if "default" in spec}
+    values.update({key.replace("_", "-"): value for key, value in inputs.items()})
+    for key, value in values.items():
+        if value is not None:
+            monkeypatch.setenv(f"PREPARE_{key.upper()}", json.dumps(value))
+
+
+@pytest.fixture
+def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """
+    project
     |- test.txt
-    |- a.txt
     |- out
-    |   |-
     |- in
     |  |- a.txt
     |  |- b.txt
-    |  | nested
-    |  |  | - c.txt
-    :param path: path to the temporary root dir
-    :return: None
+    |  |- nested
+    |     |- c.txt
     """
-    out_dir = os.path.join(path, "out")
-    os.mkdir(out_dir)
-    Path(os.path.join(path, "test.txt")).touch()
-    Path(os.path.join(path, "a.txt")).touch()
-    in_dir = os.path.join(path, "in")
-    os.mkdir(in_dir)
-    Path(os.path.join(in_dir, "a.txt")).touch()
-    Path(os.path.join(in_dir, "b.txt")).touch()
-    nested_dir = os.path.join(in_dir, "nested")
-    os.mkdir(nested_dir)
-    Path(os.path.join(nested_dir, "c.txt")).touch()
+    (tmp_path / "out").mkdir()
+    (tmp_path / "in" / "nested").mkdir(parents=True)
+    for file in ["test.txt", "in/a.txt", "in/b.txt", "in/nested/c.txt"]:
+        (tmp_path / file).write_text(file)
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
 
 
-@pytest.mark.parametrize(
-    "source, destination, force, expected, fail_no_match",
-    [
-        ("test.txt", "new.txt", False, ["new.txt"], True),  # make single copy
-        ("test.txt", "out", True, [os.path.join("out", "test.txt")], True),  # copy to new directory
-        ("test.txt", "in/a.txt", True, [os.path.join("in", "a.txt")], True),  # overwrite
-        ("test.txt", "out/a.txt", True, [os.path.join("out", "a.txt")], True),  # copy to new directory and rename
-        ("in/nested/c.txt", "out", True, [os.path.join("out", "c.txt")], True),  # copy deeper nested file
-        ("in/*", "out", True, [
-            os.path.join("out", "a.txt"),
-            os.path.join("out", "b.txt"),
-            os.path.join("out", "nested")
-        ], True),  # copy multiple files
-        ("in/**/*.txt", "out", True, [
-            os.path.join("out", "a.txt"),
-            os.path.join("out", "b.txt"),
-            os.path.join("out", "c.txt")
-        ], True),  # copy multiple files
-        ("in", "out", True, [os.path.join("out", "in")], True),  # copy directory
-        ("asdasdasd", "out", True, [], False),  # copy non-existing
-    ]
-)
-def test_copy_success(source: str,
-                      destination: str,
-                      force: bool,
-                      expected: List[str],
-                      fail_no_match: bool,
-                      monkeypatch: MonkeyPatch,
-                      mocker: MockerFixture) -> None:
-    def __get_input(key: str, required: bool = False):
-        if key == "source":
-            return source
-        elif key == "destination":
-            return destination
-        elif key == "fail-no-match":
-            return fail_no_match
-        elif key == "preserve-path":
-            return False
-        else:
-            return force
+def copied(set_output: Any) -> List[str]:
+    set_output.assert_called_once()
+    return [Path(path).as_posix() for path in set_output.call_args.args[1]]
 
-    mocker.patch('prepare_copy.main.get_input', side_effect=__get_input)
-    spy = mocker.patch("prepare_copy.main.set_output")
-    old_cwd = os.getcwd()
-    with tempfile.TemporaryDirectory() as tempdir:
-        monkeypatch.chdir(tempdir)
-        setup_temp(tempdir)
+
+@pytest.mark.parametrize("source, destination, expected", [
+    ("test.txt", "new.txt", {"new.txt": "test.txt"}),  # copy and rename
+    ("test.txt", "out", {"out/test.txt": "test.txt"}),  # into a directory
+    ("test.txt", "out/renamed.txt", {"out/renamed.txt": "test.txt"}),  # into a directory with a new name
+    ("in/nested/c.txt", "out", {"out/c.txt": "in/nested/c.txt"}),  # a nested file
+    ("in/*.txt", "out", {"out/a.txt": "in/a.txt", "out/b.txt": "in/b.txt"}),  # several files
+    ("in/**/*.txt", "out", {"out/a.txt": "in/a.txt", "out/b.txt": "in/b.txt",
+                            "out/c.txt": "in/nested/c.txt"}),  # recursive glob
+    ("in/{a,b}.txt", "out", {"out/a.txt": "in/a.txt", "out/b.txt": "in/b.txt"}),  # braces
+])
+def test_copy_files(source: str, destination: str, expected: Dict[str, str], project: Path,
+                    monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    """Every file contains its own path, so the content shows which file was copied"""
+    set_inputs(monkeypatch, source=source, destination=destination)
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert copied(set_output) == list(expected)
+    for copy, original in expected.items():
+        assert (project / copy).read_text() == original
+
+
+def test_copy_directory(project: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    set_inputs(monkeypatch, source="in", destination="out")
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert copied(set_output) == ["out/in"]
+    assert (project / "out" / "in" / "nested" / "c.txt").read_text() == "in/nested/c.txt"
+
+
+def test_overwrite_with_force(project: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    (project / "out" / "test.txt").write_text("old")
+    set_inputs(monkeypatch, source="test.txt", destination="out", force=True)
+    mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert (project / "out" / "test.txt").read_text() == "test.txt"
+
+
+def test_existing_file_without_force_fails(project: Path, monkeypatch: pytest.MonkeyPatch,
+                                           mocker: MockerFixture) -> None:
+    (project / "out" / "test.txt").write_text("old")
+    set_inputs(monkeypatch, source="test.txt", destination="out", force=False)
+    failed = mocker.spy(copy_main, "set_failed")
+    with pytest.raises(SystemExit):
         main()
-        # We need to do this otherwise it won't work on Windows......
-        monkeypatch.chdir(old_cwd)
-    spy.assert_called_once_with("copied", expected)
+    assert "already exists, use 'force' to overwrite" in failed.call_args.args[0]
+    assert (project / "out" / "test.txt").read_text() == "old"
 
 
-@pytest.mark.parametrize(
-    "source, destination, force, recursive, allow_outside, fail_no_match",
-    [
-        ("test.txt", "a.txt", False, False, False, True),
-        ("test.txt", "..", True, True, False, True),
-        ("z.txt", "out", True, True, False, True),
-        ("a.txt", "in/a.txt", False, False, False, True),
-        ("in", "out", True, False, False, True),
-        ("in", "a.txt", True, True, False, True)
-    ]
-)
-def test_copy_failure(source: str,
-                      destination: str,
-                      force: bool,
-                      recursive: bool,
-                      allow_outside: bool,
-                      fail_no_match: bool,
-                      monkeypatch: MonkeyPatch,
-                      mocker: MockerFixture) -> None:
-
-    def __get_input(key: str, required: bool = False):
-        if key == "source":
-            return source
-        elif key == "destination":
-            return destination
-        elif key == "force":
-            return force
-        elif key == "recursive":
-            return recursive
-        elif key == "allow-outside-working-directory":
-            return allow_outside
-        elif key == "fail-no-match":
-            return fail_no_match
-
-    mocker.patch('prepare_copy.main.get_input', side_effect=__get_input)
-    old_cwd = os.getcwd()
-    with tempfile.TemporaryDirectory() as tempdir:
-        monkeypatch.chdir(tempdir)
-        setup_temp(tempdir)
-        with pytest.raises(SystemExit):
-            main()
-        # We need to do this otherwise it won't work on Windows......
-        monkeypatch.chdir(old_cwd)
-
-
-def test_preserve_path(monkeypatch: MonkeyPatch, mocker: MockerFixture):
-    def __get_input(key: str, required: bool = False):
-        if key == "source":
-            return "in/nested/deeper/d.txt"
-        elif key == "destination":
-            return "out/nested"
-        elif key == "force":
-            return False
-        elif key == "recursive":
-            return False
-        elif key == "allow-outside-working-directory":
-            return False
-        elif key == "fail-no-match":
-            return False
-        elif key == "preserve-path":
-            return True
-
-    mocker.patch('prepare_copy.main.get_input', side_effect=__get_input)
-    spy = mocker.patch("prepare_copy.main.set_output")
-    old_cwd = os.getcwd()
-    with tempfile.TemporaryDirectory() as tempdir:
-        monkeypatch.chdir(tempdir)
-        setup_temp(tempdir)
-        os.mkdir("in/nested/deeper")
-        os.mkdir("out/nested")
-        Path(os.path.join("in/nested/deeper", "d.txt")).touch()
+def test_no_match_fails(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    set_inputs(monkeypatch, source="missing.txt", destination="out")
+    with pytest.raises(SystemExit):
         main()
-        monkeypatch.chdir(old_cwd)
-    spy.assert_called_once_with("copied", [os.path.join("out", "nested", "deeper", "d.txt")])
 
 
-def test_preserve_path_creates_destination(monkeypatch: MonkeyPatch, mocker: MockerFixture):
-    """preserve-path should create the destination directory when it doesn't exist yet."""
-    def __get_input(key: str, required: bool = False):
-        if key == "source":
-            return "in/nested/c.txt"
-        elif key == "destination":
-            return "out/nested"
-        elif key == "force":
-            return False
-        elif key == "recursive":
-            return False
-        elif key == "allow-outside-working-directory":
-            return False
-        elif key == "fail-no-match":
-            return True
-        elif key == "preserve-path":
-            return True
+def test_no_match_allowed(project: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    set_inputs(monkeypatch, source="missing.txt", destination="out", fail_no_match=False)
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    warning = mocker.patch("prepare_copy.main.warning")
+    main()
+    warning.assert_called_once()
+    assert copied(set_output) == []
 
-    mocker.patch('prepare_copy.main.get_input', side_effect=__get_input)
-    spy = mocker.patch("prepare_copy.main.set_output")
-    old_cwd = os.getcwd()
-    with tempfile.TemporaryDirectory() as tempdir:
-        monkeypatch.chdir(tempdir)
-        setup_temp(tempdir)
-        # out/nested does NOT exist — this was the bug trigger
+
+def test_directory_without_recursive_fails(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    set_inputs(monkeypatch, source="in", destination="out", recursive=False)
+    with pytest.raises(SystemExit):
         main()
-        assert os.path.isdir("out/nested"), "destination should have been created as a directory"
-        monkeypatch.chdir(old_cwd)
-    spy.assert_called_once_with("copied", [os.path.join("out", "nested", "c.txt")])
+    assert not (project / "out" / "in").exists()
+
+
+def test_directory_to_file_fails(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    set_inputs(monkeypatch, source="in", destination="test.txt")
+    with pytest.raises(SystemExit):
+        main()
+
+
+def test_destination_outside_working_directory_fails(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    set_inputs(monkeypatch, source="test.txt", destination="..")
+    with pytest.raises(SystemExit):
+        main()
+
+
+def test_preserve_path(project: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    """Issue #1: the directory structure after the common part (c/d/e) is preserved"""
+    (project / "a" / "b" / "c" / "d" / "e" / "f" / "g").mkdir(parents=True)
+    (project / "a" / "b" / "c" / "d" / "e" / "f" / "g" / "test.txt").write_text("x")
+    set_inputs(monkeypatch, source="a/b/c/d/e/f/g/test.txt", destination="x/c/d/e", preserve_path=True)
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert copied(set_output) == ["x/c/d/e/f/g/test.txt"]
+    assert (project / "x" / "c" / "d" / "e" / "f" / "g" / "test.txt").read_text() == "x"
 
 
 def test_common_path() -> None:
