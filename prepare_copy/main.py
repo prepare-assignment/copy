@@ -16,13 +16,14 @@ def main() -> None:
         allow_outside: bool = get_input("allow-outside-working-directory")
         fail_no_match: bool = get_input("fail-no-match")
         preserve_path: bool = get_input("preserve-path")
+        include_hidden: bool = get_input("include-hidden")
 
         # The copied paths, always with '/' (also on Windows): they are used in other steps
         copied: List[str] = []
         if not allow_outside and not Path(os.path.abspath(destination)).is_relative_to(os.getcwd()):
             set_failed(f"The destination '{Path(destination).as_posix()}' is outside the working directory, set "
                        f"'allow-outside-working-directory' to allow this")
-        files = get_matching_files(source, allow_outside_working_dir=allow_outside)
+        files = get_matching_files(source, allow_outside_working_dir=allow_outside, include_hidden=bool(include_hidden))
         if len(files) == 0:
             if fail_no_match:
                 set_failed(f"Glob '{source}' doesn't match any files")

@@ -284,3 +284,26 @@ def test_directory_to_new_destination(destination: str, project: Path, monkeypat
     assert (project / destination / "a.txt").read_text() == "in/a.txt"
     assert (project / destination / "nested" / "c.txt").read_text() == "in/nested/c.txt"
     assert not (project / destination / "in").exists()
+
+
+@pytest.fixture
+def hidden(project: Path) -> Path:
+    (project / "in" / ".gitignore").write_text("in/.gitignore")
+    return project
+
+
+def test_hidden_files_not_copied_by_default(hidden: Path, monkeypatch: pytest.MonkeyPatch,
+                                            mocker: MockerFixture) -> None:
+    set_inputs(monkeypatch, source="in/*", destination="out")
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert copied(set_output) == ["out/a.txt", "out/b.txt", "out/nested"]
+    assert not (hidden / "out" / ".gitignore").exists()
+
+
+def test_include_hidden(hidden: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    set_inputs(monkeypatch, source="in/*", destination="out", include_hidden=True)
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert copied(set_output) == ["out/.gitignore", "out/a.txt", "out/b.txt", "out/nested"]
+    assert (hidden / "out" / ".gitignore").read_text() == "in/.gitignore"
