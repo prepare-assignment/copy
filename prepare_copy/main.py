@@ -17,6 +17,7 @@ def main() -> None:
         fail_no_match: bool = get_input("fail-no-match")
         preserve_path: bool = get_input("preserve-path")
 
+        # The copied paths, always with '/' (also on Windows): they are used in other steps
         copied: List[str] = []
         if not allow_outside:
             # This will raise an error if the destination is outside the current working directory
@@ -53,9 +54,9 @@ def main() -> None:
                     new_path = destination
 
                 if os.path.exists(new_path) and not force:
-                    set_failed(f"'{new_path}' already exists, use 'force' to overwrite")
+                    set_failed(f"'{Path(new_path).as_posix()}' already exists, use 'force' to overwrite")
                 actual_path = shutil.copy(path, new_path)
-                copied.append(actual_path)
+                copied.append(Path(actual_path).as_posix())
             else:
                 if not recursive:
                     set_failed(f"Path '{path}' is a directory, set 'recursive' to copy")
@@ -73,7 +74,7 @@ def main() -> None:
                 else:
                     debug(f"Copying directory (parts == 1)'{path}' to '{os.path.join(destination, path)}', preserve_path: {preserve_path}")
                     actual_path = shutil.copytree(path, os.path.join(destination, path), dirs_exist_ok=True)
-                copied.append(actual_path)
+                copied.append(Path(actual_path).as_posix())
         debug(f"copied paths are: {copied}")
         set_output("copied", copied)
     except Exception as e:

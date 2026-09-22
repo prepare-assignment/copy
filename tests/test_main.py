@@ -46,8 +46,9 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def copied(set_output: Any) -> List[str]:
+    """The copied output, as is: paths use '/' on every platform (they are used in other steps)"""
     set_output.assert_called_once()
-    return [Path(path).as_posix() for path in set_output.call_args.args[1]]
+    return list(set_output.call_args.args[1])
 
 
 @pytest.mark.parametrize("source, destination, expected", [
@@ -94,7 +95,7 @@ def test_existing_file_without_force_fails(project: Path, monkeypatch: pytest.Mo
     failed = mocker.spy(copy_main, "set_failed")
     with pytest.raises(SystemExit):
         main()
-    assert "already exists, use 'force' to overwrite" in failed.call_args.args[0]
+    assert failed.call_args.args[0] == "'out/test.txt' already exists, use 'force' to overwrite"
     assert (project / "out" / "test.txt").read_text() == "old"
 
 
