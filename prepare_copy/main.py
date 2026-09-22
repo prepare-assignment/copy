@@ -1,7 +1,7 @@
 import os.path
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from prepare_toolbox.core import set_failed, get_input, debug, set_output, warning
 from prepare_toolbox.file import get_matching_files
@@ -35,50 +35,52 @@ def main() -> None:
             # Otherwise every file is copied to the same path and only the last one remains
             set_failed(f"'{source}' matches {len(files)} files, the destination '{Path(destination).as_posix()}' must "
                        f"be an existing directory")
+        # First check everything, then copy: a failing task doesn't leave half of the files copied
+        plan: List[Tuple[str, str]] = []
         for path in files:
             if os.path.isfile(path):
-                if preserve_path and not os.path.isdir(destination):
-                    os.makedirs(destination, exist_ok=True)
-
-                if os.path.isdir(destination):
-                    if preserve_path:
-                        common_part = __preserve_path(path, destination)
-                        if common_part:
-                            new_path = os.path.join(destination, common_part)
-                            os.makedirs(os.path.dirname(new_path), exist_ok=True)
-                        else:
-                            new_path = os.path.join(destination, os.path.basename(path))
-                    else:
-                        new_path = os.path.join(destination, os.path.basename(path))
-                else:
-                    new_path = destination
-
-                if os.path.exists(new_path) and not force:
-                    set_failed(f"'{Path(new_path).as_posix()}' already exists, use 'force' to overwrite")
-                actual_path = shutil.copy(path, new_path)
-                copied.append(Path(actual_path).as_posix())
+                target = __file_target(path, destination, preserve_path)
+                if os.path.exists(target) and not force:
+                    set_failed(f"'{Path(target).as_posix()}' already exists, use 'force' to overwrite")
             else:
                 if not recursive:
                     set_failed(f"Path '{path}' is a directory, set 'recursive' to copy")
                 if not os.path.isdir(destination):
                     set_failed(f"Cannot copy a directory ('{path}') to '{destination}' as it is not a directory")
-                parts = os.path.normpath(path).split(os.path.sep)
-                target = os.path.join(destination, parts[-1])
+                target = os.path.join(destination, os.path.basename(os.path.normpath(path)))
                 if not force:
                     existing = __first_existing_file(path, target)
                     if existing is not None:
                         set_failed(f"'{Path(existing).as_posix()}' already exists, use 'force' to overwrite")
-                if len(parts) > 1:
-                    debug(f"Copying directory (parts > 1)'{path}' to '{os.path.join(destination, parts[-1])}', preserve_path: {preserve_path}")
-                    actual_path = shutil.copytree(path, os.path.join(destination, parts[-1]), dirs_exist_ok=True)
-                else:
-                    debug(f"Copying directory (parts == 1)'{path}' to '{os.path.join(destination, path)}', preserve_path: {preserve_path}")
-                    actual_path = shutil.copytree(path, os.path.join(destination, path), dirs_exist_ok=True)
-                copied.append(Path(actual_path).as_posix())
+            plan.append((path, target))
+
+        for path, target in plan:
+            if os.path.isfile(path):
+                if preserve_path:
+                    # Also creates the destination if it doesn't exist yet
+                    os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+                actual_path = shutil.copy(path, target)
+            else:
+                debug(f"Copying directory '{path}' to '{target}'")
+                actual_path = shutil.copytree(path, target, dirs_exist_ok=True)
+            copied.append(Path(actual_path).as_posix())
         debug(f"copied paths are: {copied}")
         set_output("copied", copied)
     except Exception as e:
         set_failed(e)
+
+
+def __file_target(path: str, destination: str, preserve_path: bool) -> str:
+    """
+    The path a file is copied to: into the destination directory (with preserve-path, the directory structure
+    after the common part is kept), or to the destination itself if it isn't a directory
+    """
+    if preserve_path:
+        common_part = __preserve_path(path, destination)
+        return os.path.join(destination, common_part if common_part else os.path.basename(path))
+    if os.path.isdir(destination):
+        return os.path.join(destination, os.path.basename(path))
+    return destination
 
 
 def __first_existing_file(directory: str, target: str) -> Optional[str]:
