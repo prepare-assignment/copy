@@ -95,31 +95,36 @@ def __first_existing_file(directory: str, target: str) -> Optional[str]:
     return None
 
 
-def __preserve_path(source: str, destination: str):
+def __preserve_path(source: str, destination: str) -> Optional[str]:
+    """
+    The part of the source path after the part it has in common with the destination, e.g. source
+    'a/b/c/d/e/f/g/test.txt' and destination 'x/c/d/e' give 'f/g/test.txt'.
 
-    source = os.path.abspath(source)
-    destination = os.path.abspath(destination)
+    Starting with the deepest directory of the destination, it looks for that directory name in the source. If the
+    name occurs more than once, the occurrence with the longest common sequence of directories before it is used
+    (e.g. 'src/main' rather than 'images/main' for the destination 'out/src/main'), for equally long sequences the
+    last occurrence.
+    """
+    source_parts = [x for x in os.path.abspath(source).split(os.sep) if x != '']
+    dest_parts = [x for x in os.path.abspath(destination).split(os.sep) if x != '']
 
-    source_parts = [x for x in source.split(os.sep) if x != '']
-    dest_parts = [x for x in destination.split(os.sep) if x != '']
-
-    dictionary = {}
-
-    for idx, part in enumerate(source_parts):
-        dictionary[part] = idx
-
-    length = len(dest_parts)
-    end = None
-    for idx in reversed(range(length)):
-        part = dest_parts[idx]
-        if part in dictionary:
-            end = dictionary[part] + 1
-            break
-    if not end:
-        return None
-    else:
-        debug(f"Preserving path, common: {source_parts[:end]}, preserving: {source_parts[end:]}")
-        return os.sep.join(source_parts[end:])
+    for dest_index in reversed(range(len(dest_parts))):
+        end: Optional[int] = None
+        longest = 0
+        for source_index, part in enumerate(source_parts):
+            if part != dest_parts[dest_index]:
+                continue
+            # The number of directories (up to this one) that source and destination have in common
+            length = 0
+            while (length <= min(source_index, dest_index)
+                   and source_parts[source_index - length] == dest_parts[dest_index - length]):
+                length += 1
+            if length >= longest:
+                end, longest = source_index + 1, length
+        if end is not None:
+            debug(f"Preserving path, common: {source_parts[:end]}, preserving: {source_parts[end:]}")
+            return os.sep.join(source_parts[end:])
+    return None
 
 
 if __name__ == "__main__":

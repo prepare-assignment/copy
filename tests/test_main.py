@@ -243,3 +243,31 @@ def test_nothing_copied_when_a_directory_is_not_allowed(project: Path, monkeypat
     with pytest.raises(SystemExit):
         main()
     assert not (project / "out" / "a.txt").exists()
+
+
+def test_preserve_path_with_repeated_directory_name(project: Path, monkeypatch: pytest.MonkeyPatch,
+                                                    mocker: MockerFixture) -> None:
+    """'main' is both in src/main and images/main: the structure after src/main was lost"""
+    (project / "solution" / "src" / "main" / "resources" / "images" / "main").mkdir(parents=True)
+    (project / "solution" / "src" / "main" / "resources" / "images" / "main" / "logo.png").write_text("logo")
+    set_inputs(monkeypatch, source="solution/src/main/resources/images/main/logo.png",
+               destination="out/assignment/src/main", preserve_path=True)
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert copied(set_output) == ["out/assignment/src/main/resources/images/main/logo.png"]
+    assert (project / "out/assignment/src/main/resources/images/main/logo.png").read_text() == "logo"
+
+
+@pytest.mark.parametrize("source, destination, expected", [
+    # The longest common sequence wins, not the last occurrence of the name
+    ("/p/solution/src/main/resources/images/main/logo.png", "/p/out/assignment/src/main",
+     "resources/images/main/logo.png"),
+    # Issue #1
+    ("/p/a/b/c/d/e/f/g/test.txt", "/p/x/c/d/e", "f/g/test.txt"),
+    # Only the deepest directory name is common
+    ("/p/in/nested/c.txt", "/p/out/nested", "c.txt"),
+    # Equally long: the last occurrence, as before
+    ("/p/a/x/b/x/c.txt", "/p/out/x", "c.txt"),
+])
+def test_preserve_path_common_part(source: str, destination: str, expected: str) -> None:
+    assert Path(__preserve_path(source, destination)).as_posix() == expected
