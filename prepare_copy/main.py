@@ -45,9 +45,13 @@ def main() -> None:
             else:
                 if not recursive:
                     set_failed(f"Path '{path}' is a directory, set 'recursive' to copy")
-                if not os.path.isdir(destination):
+                if os.path.isdir(destination):
+                    target = os.path.join(destination, os.path.basename(os.path.normpath(path)))
+                elif not os.path.exists(destination):
+                    # Like cp -r: the directory is copied as the new destination
+                    target = destination
+                else:
                     set_failed(f"Cannot copy a directory ('{path}') to '{destination}' as it is not a directory")
-                target = os.path.join(destination, os.path.basename(os.path.normpath(path)))
                 if not force:
                     existing = __first_existing_file(path, target)
                     if existing is not None:

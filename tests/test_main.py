@@ -271,3 +271,16 @@ def test_preserve_path_with_repeated_directory_name(project: Path, monkeypatch: 
 ])
 def test_preserve_path_common_part(source: str, destination: str, expected: str) -> None:
     assert Path(__preserve_path(source, destination)).as_posix() == expected
+
+
+@pytest.mark.parametrize("destination", ["new-dir", "out/new-dir", "deeper/new/dir"])
+def test_directory_to_new_destination(destination: str, project: Path, monkeypatch: pytest.MonkeyPatch,
+                                      mocker: MockerFixture) -> None:
+    """Like cp -r: a directory copied to a path that doesn't exist yet is copied as that path"""
+    set_inputs(monkeypatch, source="in", destination=destination)
+    set_output = mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert copied(set_output) == [destination]
+    assert (project / destination / "a.txt").read_text() == "in/a.txt"
+    assert (project / destination / "nested" / "c.txt").read_text() == "in/nested/c.txt"
+    assert not (project / destination / "in").exists()
