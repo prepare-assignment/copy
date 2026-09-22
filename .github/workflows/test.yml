@@ -4,6 +4,8 @@ defaults:
   run:
     shell: bash
 
+# Only on pull requests: main only changes through squash-merged PRs, which
+# have already passed these checks.
 on:
   pull_request:
     branches: [ "main" ]
