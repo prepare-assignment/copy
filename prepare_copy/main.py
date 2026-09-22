@@ -30,6 +30,10 @@ def main() -> None:
                 set_output("copied", copied)
                 return
         debug(f"Glob '{source}', matched {files}")
+        if len(files) > 1 and not preserve_path and not os.path.isdir(destination):
+            # Otherwise every file is copied to the same path and only the last one remains
+            set_failed(f"'{source}' matches {len(files)} files, the destination '{Path(destination).as_posix()}' must "
+                       f"be an existing directory")
         for path in files:
             if os.path.isfile(path):
                 if preserve_path and not os.path.isdir(destination):

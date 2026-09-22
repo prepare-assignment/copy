@@ -150,3 +150,17 @@ def test_common_path() -> None:
     common = __preserve_path(source, destination)
 
     assert common == str(Path("io/github/fontysvenlo/classloader/SecretClass.class.enc"))
+
+
+@pytest.mark.parametrize("destination", ["new.txt", "test.txt", "missing/dir"])
+def test_several_files_to_non_directory_fails(destination: str, project: Path, monkeypatch: pytest.MonkeyPatch,
+                                              mocker: MockerFixture) -> None:
+    """Every file was copied to the same path, only the last one survived (cp fails: target is not a directory)"""
+    set_inputs(monkeypatch, source="in/*.txt", destination=destination)
+    failed = mocker.spy(copy_main, "set_failed")
+    with pytest.raises(SystemExit):
+        main()
+    assert (f"'in/*.txt' matches 2 files, the destination '{destination}' must be an existing directory"
+            in failed.call_args.args[0])
+    assert (project / "test.txt").read_text() == "test.txt"
+    assert not (project / "new.txt").exists()
