@@ -127,10 +127,18 @@ def test_directory_to_file_fails(project: Path, monkeypatch: pytest.MonkeyPatch)
         main()
 
 
-def test_destination_outside_working_directory_fails(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    set_inputs(monkeypatch, source="test.txt", destination="..")
+@pytest.mark.parametrize("destination", ["..", "../outside", "ABSOLUTE"])
+def test_destination_outside_working_directory_fails(destination: str, project: Path,
+                                                     monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+    """The error was pathlib's raw 'is not in the subpath of' message"""
+    if destination == "ABSOLUTE":
+        destination = (project.parent / "outside").as_posix()
+    set_inputs(monkeypatch, source="test.txt", destination=destination)
+    failed = mocker.spy(copy_main, "set_failed")
     with pytest.raises(SystemExit):
         main()
+    assert failed.call_args.args[0] == (f"The destination '{destination}' is outside the working directory, set "
+                                        f"'allow-outside-working-directory' to allow this")
 
 
 def test_preserve_path(project: Path, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:

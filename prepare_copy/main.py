@@ -19,9 +19,9 @@ def main() -> None:
 
         # The copied paths, always with '/' (also on Windows): they are used in other steps
         copied: List[str] = []
-        if not allow_outside:
-            # This will raise an error if the destination is outside the current working directory
-            Path(os.path.abspath(destination)).relative_to(os.getcwd())
+        if not allow_outside and not Path(os.path.abspath(destination)).is_relative_to(os.getcwd()):
+            set_failed(f"The destination '{Path(destination).as_posix()}' is outside the working directory, set "
+                       f"'allow-outside-working-directory' to allow this")
         files = get_matching_files(source, allow_outside_working_dir=allow_outside)
         if len(files) == 0:
             if fail_no_match:
