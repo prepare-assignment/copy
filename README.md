@@ -1,4 +1,4 @@
-# Copy actions
+# Copy
 
 Copy files/directories. The action is modeled after linux `cp` command. For more information see the [man page](https://man7.org/linux/man-pages/man1/cp.1.html).
 
@@ -20,13 +20,13 @@ The following options are available:
 
 ```yaml
 source:
-  description: "File/directory to prepare_copy (glob)"
+  description: "Files/directories to copy (glob)"
   required: true
 destination:
-  description: "Destination to prepare_copy to"
+  description: "Destination to copy to"
   required: true
 force:
-  description: "Force the prepare_copy (overwrite)"
+  description: "Overwrite existing files"
   type: boolean
   default: true
 recursive:
@@ -37,6 +37,10 @@ allow-outside-working-directory:
   description: "Destination/matched files can be outside the working directory"
   type: boolean
   default: false
+fail-no-match:
+  description: "Fail if the glob doesn't match anything, otherwise only log a warning"
+  type: boolean
+  default: true
 preserve-path:
   description: "Preserve directory structure after common path"
   type: boolean
@@ -46,6 +50,29 @@ include-hidden:
   type: boolean
   default: false
 ```
+
+## How files and directories are copied
+
+- A **file** is copied into the destination if it's an existing directory, otherwise to the destination itself (e.g. to rename it).
+- If the glob matches **several files**, the destination must be an existing directory (except with `preserve-path`).
+- A **directory** (needs `recursive`) is copied into the destination if it's an existing directory (`in` → `out/in`), or as the destination if it doesn't exist yet, like `cp -r` (`in` → `new-dir`).
+- Without `force`, the task fails if a file (also one inside a copied directory) would be overwritten.
+- Everything is checked before anything is copied, so a failing task doesn't leave half of the files copied.
+
+### preserve-path
+
+With `preserve-path`, the directory structure after the part the source and destination have in common is kept, and the destination directory is created if needed:
+
+```yaml
+- name: Copy resources
+  uses: copy
+  with:
+    source: "solution/src/main/resources/**/*.*"
+    destination: out/assignment/src/main/resources
+    preserve-path: true
+```
+
+`solution/src/main/resources/images/logo.png` is copied to `out/assignment/src/main/resources/images/logo.png`. The common part is the longest sequence of directories at the end of the destination that also occurs in the source (`src/main/resources`).
 
 ## Outputs
 

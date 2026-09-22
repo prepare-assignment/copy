@@ -3,13 +3,13 @@ name: "Copy"
 description: "Copy files/directories"
 inputs:
   source:
-    description: "File/directory to prepare_copy (glob)"
+    description: "Files/directories to copy (glob)"
     required: true
   destination:
-    description: "Destination to prepare_copy to"
+    description: "Destination to copy to"
     required: true
   force:
-    description: "Force the prepare_copy (overwrite)"
+    description: "Overwrite existing files"
     type: boolean
     default: true
   recursive:
@@ -21,7 +21,7 @@ inputs:
     type: boolean
     default: false
   fail-no-match:
-    description: "If true the action fails if non of the globs match"
+    description: "Fail if the glob doesn't match anything, otherwise only log a warning"
     type: boolean
     default: true
   preserve-path:
