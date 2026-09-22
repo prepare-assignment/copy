@@ -215,3 +215,31 @@ def test_directory_with_force_overwrites(existing: Path, monkeypatch: pytest.Mon
     main()
     assert (existing / "out" / "in" / "a.txt").read_text() == "in/a.txt"
     assert (existing / "out" / "in" / "extra.txt").read_text() == "extra"
+
+
+def test_nothing_copied_when_a_file_exists_without_force(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The existing file was only noticed after the files before it were copied"""
+    (project / "out" / "b.txt").write_text("old")
+    set_inputs(monkeypatch, source="in/*.txt", destination="out", force=False)
+    with pytest.raises(SystemExit):
+        main()
+    assert not (project / "out" / "a.txt").exists()
+    assert (project / "out" / "b.txt").read_text() == "old"
+
+
+def test_nothing_copied_when_a_directory_file_exists_without_force(project: Path,
+                                                                    monkeypatch: pytest.MonkeyPatch) -> None:
+    (project / "out" / "nested").mkdir()
+    (project / "out" / "nested" / "c.txt").write_text("old")
+    set_inputs(monkeypatch, source="in/*", destination="out", force=False)
+    with pytest.raises(SystemExit):
+        main()
+    assert not (project / "out" / "a.txt").exists()
+    assert (project / "out" / "nested" / "c.txt").read_text() == "old"
+
+
+def test_nothing_copied_when_a_directory_is_not_allowed(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    set_inputs(monkeypatch, source="in/*", destination="out", recursive=False)
+    with pytest.raises(SystemExit):
+        main()
+    assert not (project / "out" / "a.txt").exists()
