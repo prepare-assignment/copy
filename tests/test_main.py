@@ -164,3 +164,45 @@ def test_several_files_to_non_directory_fails(destination: str, project: Path, m
             in failed.call_args.args[0])
     assert (project / "test.txt").read_text() == "test.txt"
     assert not (project / "new.txt").exists()
+
+
+@pytest.fixture
+def existing(project: Path) -> Path:
+    """out/in already exists with an older copy of a.txt and a file that isn't in the source"""
+    (project / "out" / "in").mkdir()
+    (project / "out" / "in" / "a.txt").write_text("old")
+    (project / "out" / "in" / "extra.txt").write_text("extra")
+    return project
+
+
+def test_directory_without_force_does_not_overwrite(existing: Path, monkeypatch: pytest.MonkeyPatch,
+                                                    mocker: MockerFixture) -> None:
+    """force was ignored for directories: existing files were overwritten"""
+    set_inputs(monkeypatch, source="in", destination="out", force=False)
+    failed = mocker.spy(copy_main, "set_failed")
+    with pytest.raises(SystemExit):
+        main()
+    assert "'out/in/a.txt' already exists, use 'force' to overwrite" in failed.call_args.args[0].replace("\\", "/")
+    assert (existing / "out" / "in" / "a.txt").read_text() == "old"
+    # Nothing is copied, not even the files that don't exist yet
+    assert not (existing / "out" / "in" / "b.txt").exists()
+
+
+def test_directory_without_force_merges_new_files(project: Path, monkeypatch: pytest.MonkeyPatch,
+                                                  mocker: MockerFixture) -> None:
+    (project / "out" / "in").mkdir()
+    (project / "out" / "in" / "extra.txt").write_text("extra")
+    set_inputs(monkeypatch, source="in", destination="out", force=False)
+    mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert (project / "out" / "in" / "nested" / "c.txt").read_text() == "in/nested/c.txt"
+    assert (project / "out" / "in" / "extra.txt").read_text() == "extra"
+
+
+def test_directory_with_force_overwrites(existing: Path, monkeypatch: pytest.MonkeyPatch,
+                                         mocker: MockerFixture) -> None:
+    set_inputs(monkeypatch, source="in", destination="out", force=True)
+    mocker.patch("prepare_copy.main.set_output")
+    main()
+    assert (existing / "out" / "in" / "a.txt").read_text() == "in/a.txt"
+    assert (existing / "out" / "in" / "extra.txt").read_text() == "extra"

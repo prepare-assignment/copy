@@ -1,7 +1,7 @@
 import os.path
 import shutil
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from prepare_toolbox.core import set_failed, get_input, debug, set_output, warning
 from prepare_toolbox.file import get_matching_files
@@ -62,6 +62,11 @@ def main() -> None:
                 if not os.path.isdir(destination):
                     set_failed(f"Cannot copy a directory ('{path}') to '{destination}' as it is not a directory")
                 parts = os.path.normpath(path).split(os.path.sep)
+                target = os.path.join(destination, parts[-1])
+                if not force:
+                    existing = __first_existing_file(path, target)
+                    if existing is not None:
+                        set_failed(f"'{Path(existing).as_posix()}' already exists, use 'force' to overwrite")
                 if len(parts) > 1:
                     debug(f"Copying directory (parts > 1)'{path}' to '{os.path.join(destination, parts[-1])}', preserve_path: {preserve_path}")
                     actual_path = shutil.copytree(path, os.path.join(destination, parts[-1]), dirs_exist_ok=True)
@@ -73,6 +78,18 @@ def main() -> None:
         set_output("copied", copied)
     except Exception as e:
         set_failed(e)
+
+
+def __first_existing_file(directory: str, target: str) -> Optional[str]:
+    """
+    The first file of the directory that already exists in the target directory (copying would overwrite it)
+    """
+    for root, _, names in os.walk(directory):
+        for name in names:
+            existing = os.path.join(target, os.path.relpath(os.path.join(root, name), directory))
+            if os.path.exists(existing):
+                return existing
+    return None
 
 
 def __preserve_path(source: str, destination: str):
