@@ -41,6 +41,10 @@ preserve-path:
   description: "Preserve directory structure after common path"
   type: boolean
   default: false
+include-hidden:
+  description: "Also match hidden files and directories (starting with a '.') with wildcards such as '*' and '**'"
+  type: boolean
+  default: false
 ```
 
 ## Outputs
